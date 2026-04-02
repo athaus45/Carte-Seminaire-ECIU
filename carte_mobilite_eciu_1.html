@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Carte de Mobilité · ECIU Groupe INSA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+:root {
+  --navy:#0A1628; --navy-md:#1A3050; --navy-lt:#EEF2F8;
+  --yellow:#F2C200; --yellow-dk:#B89200; --yellow-lt:#FFFADF;
+  --cream:#F5F3EE; --white:#FFFFFF; --slate:#E2DDD5;
+  --text:#1C2B3A; --muted:#6B7585; --dim:#9BA5B4;
+  --r:10px; --rl:16px;
+  --shadow:0 2px 14px rgba(10,22,40,.10);
+  --shadow-lg:0 8px 40px rgba(10,22,40,.18);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text)}
+.app{display:flex;flex-direction:column;height:100vh}
+.main{display:flex;flex:1;overflow:hidden}
+#map{flex:1;z-index:1}
+
+/* HEADER */
+header{flex-shrink:0;height:58px;background:var(--navy);border-bottom:3px solid var(--yellow);display:flex;align-items:center;gap:16px;padding:0 22px;z-index:1000}
+.logo{width:36px;height:36px;border-radius:9px;background:var(--yellow);display:flex;align-items:center;justify-content:center;font-family:'DM Serif Display',serif;font-style:italic;font-size:19px;color:var(--navy);flex-shrink:0;box-shadow:0 0 0 1px rgba(242,194,0,.3),0 4px 14px rgba(242,194,0,.2)}
+.hd-title{font-family:'DM Serif Display',serif;font-weight:400;font-size:14px;color:#fff}
+.hd-sub{font-size:10px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:#4A6480;margin-top:2px}
+.hd-right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.badge{display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-live{border:1px solid rgba(242,194,0,.4);background:rgba(242,194,0,.12);color:var(--yellow)}
+.badge-live::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--yellow);animation:pulse 2s ease-in-out infinite}
+.badge-count{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.07);color:rgba(255,255,255,.55)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* SIDEBAR */
+.sidebar{width:320px;flex-shrink:0;background:var(--white);border-right:1px solid var(--slate);display:flex;flex-direction:column;overflow:hidden;z-index:900}
+.sub-tabs{display:flex;border-bottom:1px solid var(--slate);flex-shrink:0}
+.sub-tab{flex:1;height:44px;border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;position:relative;transition:color .15s}
+.sub-tab:hover{color:var(--text)}
+.sub-tab.active{color:var(--navy)}
+.sub-tab.active::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--navy);border-radius:2px 2px 0 0}
+.panel{display:none;flex:1;flex-direction:column;overflow:hidden}
+.panel.active{display:flex}
+
+/* FORM */
+.add-scroll{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:13px}
+.add-scroll::-webkit-scrollbar{width:3px}
+.add-scroll::-webkit-scrollbar-thumb{background:var(--slate);border-radius:2px}
+.panel-title{font-family:'DM Serif Display',serif;font-size:14px;color:var(--text);margin:0}
+.field-label{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:5px}
+.field-input,.field-select,.field-textarea{width:100%;padding:8px 11px;border-radius:var(--r);border:1px solid var(--slate);background:var(--cream);font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);outline:none;transition:border-color .15s,box-shadow .15s}
+.field-input:focus,.field-select:focus,.field-textarea:focus{border-color:var(--navy-md);box-shadow:0 0 0 3px rgba(10,22,40,.06)}
+.field-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%236B7585' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;padding-right:30px}
+.field-textarea{resize:none;height:66px;line-height:1.55}
+.cat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.cat-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;border-radius:9px;border:1.5px solid var(--slate);background:var(--cream);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:500;color:var(--muted);text-align:center;line-height:1.2;transition:all .12s}
+.cat-btn .ico{font-size:18px}
+.cat-btn:hover{border-color:var(--navy-md);color:var(--text);background:var(--navy-lt)}
+.cat-btn.sel{border-color:var(--yellow);background:var(--yellow-lt);color:var(--navy);font-weight:600}
+.place-hint{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:var(--r);font-size:12px;transition:all .2s}
+.place-hint.idle{background:var(--navy-lt);border:1px solid rgba(10,22,40,.1);color:var(--navy-md)}
+.place-hint.placed{background:var(--yellow-lt);border:1px solid rgba(242,194,0,.4);color:var(--navy)}
+.hint-ico{font-size:16px;flex-shrink:0}
+.add-btn{width:100%;padding:11px;border-radius:var(--r);border:none;background:var(--navy);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;letter-spacing:.01em;transition:all .15s}
+.add-btn:hover:not(:disabled){background:var(--navy-md)}
+.add-btn:active:not(:disabled){transform:scale(.98)}
+.add-btn:disabled{background:var(--dim);cursor:not-allowed}
+
+/* LIST */
+.filter-bar{padding:10px 12px;display:flex;gap:5px;flex-wrap:wrap;border-bottom:1px solid var(--slate);flex-shrink:0}
+.chip{padding:3px 10px;border-radius:20px;font-size:10px;font-weight:600;border:1px solid var(--slate);background:var(--cream);color:var(--muted);cursor:pointer;transition:all .12s;white-space:nowrap;font-family:'DM Sans',sans-serif}
+.chip:hover{border-color:var(--navy);color:var(--navy)}
+.chip.active{background:var(--navy);border-color:var(--navy);color:#fff}
+.poi-list{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:7px}
+.poi-list::-webkit-scrollbar{width:3px}
+.poi-list::-webkit-scrollbar-thumb{background:var(--slate);border-radius:2px}
+.poi-card{border-radius:var(--r);border:1px solid var(--slate);background:var(--white);cursor:pointer;overflow:hidden;transition:border-color .15s,box-shadow .15s,transform .12s}
+.poi-card:hover{border-color:var(--navy);box-shadow:var(--shadow);transform:translateY(-1px)}
+.poi-card-top{padding:9px 11px;display:flex;align-items:flex-start;gap:8px}
+.poi-card-ico{font-size:19px;flex-shrink:0;margin-top:1px}
+.poi-card-name{font-size:13px;font-weight:600;color:var(--text);line-height:1.3}
+.poi-card-meta{display:flex;align-items:center;gap:5px;margin-top:3px;flex-wrap:wrap}
+.insa-tag{font-size:10px;font-weight:700;padding:1px 7px;border-radius:4px}
+.cat-tag{font-size:10px;color:var(--muted)}
+.author-tag{font-size:10px;color:var(--dim);margin-left:auto}
+.poi-card-desc{font-size:12px;color:var(--muted);padding:0 11px 9px;line-height:1.55;border-top:1px solid var(--cream)}
+.empty-state{text-align:center;padding:48px 20px;color:var(--dim);font-size:13px;line-height:1.7}
+.empty-ico{font-size:38px;display:block;margin-bottom:12px}
+
+/* GREEN */
+.green-city-bar{padding:11px 12px;border-bottom:1px solid var(--slate);flex-shrink:0}
+.green-scroll{flex:1;overflow-y:auto;padding:11px;display:flex;flex-direction:column;gap:11px}
+.green-scroll::-webkit-scrollbar{width:3px}
+.green-scroll::-webkit-scrollbar-thumb{background:var(--slate);border-radius:2px}
+.green-section{border-radius:var(--r);overflow:hidden;border:1px solid var(--slate)}
+.green-head{padding:9px 13px;font-size:12px;font-weight:700;color:#fff;display:flex;align-items:center;gap:6px}
+.green-body{background:var(--cream)}
+.green-item{display:flex;align-items:flex-start;gap:9px;padding:9px 13px;border-bottom:1px solid var(--slate)}
+.green-item:last-child{border-bottom:none}
+.green-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.green-item-text{font-size:12px;color:var(--text);line-height:1.5;font-weight:500}
+.green-item-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.green-score-row{display:flex;align-items:center;gap:8px;padding:11px 13px}
+.green-score-lbl{font-size:12px;color:var(--muted);flex:1}
+.green-score-bar{flex:2;height:6px;background:var(--slate);border-radius:3px;overflow:hidden}
+.green-score-fill{height:100%;border-radius:3px;background:#22c55e}
+.green-score-val{font-size:13px;font-weight:700;color:var(--text);min-width:40px;text-align:right}
+
+/* POPUP */
+.leaflet-popup-content-wrapper{border-radius:var(--rl)!important;padding:0!important;overflow:hidden;box-shadow:var(--shadow-lg)!important;border:1px solid var(--slate)}
+.leaflet-popup-content{margin:0!important;min-width:220px}
+.leaflet-popup-tip-container{display:none}
+.popup-head{padding:12px 15px 10px;background:var(--navy)}
+.popup-ico{font-size:22px;display:block;margin-bottom:4px}
+.popup-name{font-size:14px;font-weight:700;color:#fff;line-height:1.3}
+.popup-insa-tag{display:inline-block;margin-top:5px;padding:2px 9px;border-radius:5px;font-size:10px;font-weight:700;background:rgba(242,194,0,.2);color:var(--yellow)}
+.popup-body{padding:10px 15px 12px}
+.popup-cat{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.popup-desc{font-size:12px;color:var(--text);line-height:1.55;margin-bottom:8px}
+.popup-author{font-size:11px;color:var(--dim)}
+.popup-del{display:block;width:100%;padding:9px;border:none;border-top:1px solid #FFE5E5;background:#FFF5F5;color:#e53e3e;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .15s}
+.popup-del:hover{background:#FFE5E5}
+.campus-pin{width:36px;height:36px;border-radius:50%;background:var(--navy);border:3px solid var(--yellow);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--yellow);box-shadow:0 3px 12px rgba(10,22,40,.45);letter-spacing:-.02em}
+
+/* Config banner */
+#cfg-banner{position:fixed;bottom:20px;right:20px;z-index:2000;background:var(--white);border:2px solid var(--yellow);border-radius:var(--rl);box-shadow:var(--shadow-lg);max-width:340px;overflow:hidden;display:none}
+.cfg-head{background:var(--yellow);padding:11px 15px;display:flex;align-items:center;gap:9px}
+.cfg-head strong{font-size:13px;font-weight:700;color:var(--navy);flex:1}
+.cfg-head button{background:none;border:none;cursor:pointer;font-size:18px;color:var(--navy);opacity:.5;line-height:1}
+.cfg-body{padding:12px 15px;font-size:12px;color:var(--muted);line-height:1.7}
+.cfg-body code{background:var(--yellow-lt);padding:0 4px;border-radius:3px;font-size:11px;color:var(--navy)}
+
+body.placing #map{cursor:crosshair!important}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">E</div>
+    <div>
+      <div class="hd-title">Carte de Mobilité ECIU · Groupe INSA</div>
+      <div class="hd-sub">Session 2 · Séminaire Ambassadeurs · Valenciennes</div>
+    </div>
+    <div class="hd-right">
+      <span class="badge badge-live">En direct</span>
+      <span class="badge badge-count" id="total-badge">0 points</span>
+    </div>
+  </header>
+
+  <div class="main">
+    <div class="sidebar" id="sidebar">
+      <div class="sub-tabs">
+        <button class="sub-tab active" onclick="switchTab('add',this)">＋ Ajouter</button>
+        <button class="sub-tab" onclick="switchTab('list',this)">📍 (<span id="list-count">0</span>)</button>
+        <button class="sub-tab" onclick="switchTab('green',this)">🌿 Mobilité</button>
+      </div>
+
+      <!-- ADD -->
+      <div class="panel active" id="panel-add">
+        <div class="add-scroll">
+          <p class="panel-title">Ajouter un point d'intérêt</p>
+          <div>
+            <span class="field-label">Catégorie</span>
+            <div class="cat-grid" id="cat-grid"></div>
+          </div>
+          <div>
+            <label class="field-label" for="sel-insa">INSA de référence</label>
+            <select class="field-select" id="sel-insa" onchange="checkReady()">
+              <option value="">— Choisir un INSA —</option>
+              <option value="toulouse">INSA Toulouse</option>
+              <option value="lyon">INSA Lyon</option>
+              <option value="rennes">INSA Rennes</option>
+              <option value="rouen">INSA Normandie (Rouen)</option>
+              <option value="strasbourg">INSA Strasbourg</option>
+              <option value="cvl">INSA Centre Val de Loire</option>
+              <option value="hdf">INSA Hauts-de-France</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label" for="inp-name">Nom du lieu</label>
+            <input class="field-input" id="inp-name" type="text" placeholder="Ex : Gare Toulouse Matabiau" oninput="checkReady()"/>
+          </div>
+          <div>
+            <label class="field-label" for="inp-desc">Description / conseil</label>
+            <textarea class="field-textarea" id="inp-desc" placeholder="Fréquence, tarif, conseil pratique…"></textarea>
+          </div>
+          <div>
+            <label class="field-label" for="inp-author">Ajouté par</label>
+            <input class="field-input" id="inp-author" type="text" placeholder="Prénom · INSA"/>
+          </div>
+          <div class="place-hint idle" id="place-hint">
+            <span class="hint-ico">📍</span>
+            <span id="hint-text">Choisissez une catégorie puis cliquez sur la carte</span>
+          </div>
+          <button class="add-btn" id="add-btn" onclick="submitPOI()" disabled>Valider et ajouter</button>
+        </div>
+      </div>
+
+      <!-- LIST -->
+      <div class="panel" id="panel-list">
+        <div class="filter-bar" id="filter-bar"></div>
+        <div class="poi-list" id="poi-list"></div>
+      </div>
+
+      <!-- GREEN -->
+      <div class="panel" id="panel-green">
+        <div class="green-city-bar">
+          <span class="field-label">Ville INSA</span>
+          <select class="field-select" id="green-city" onchange="renderGreen()">
+            <option value="toulouse">Toulouse — INSA Toulouse</option>
+            <option value="lyon">Lyon — INSA Lyon</option>
+            <option value="rennes">Rennes — INSA Rennes</option>
+            <option value="rouen">Rouen — INSA Normandie</option>
+            <option value="strasbourg">Strasbourg — INSA Strasbourg</option>
+            <option value="cvl">Bourges — INSA CVL</option>
+            <option value="hdf">Valenciennes — INSA HDF</option>
+          </select>
+        </div>
+        <div class="green-scroll" id="green-panel"></div>
+      </div>
+    </div>
+
+    <div id="map"></div>
+  </div>
+</div>
+
+<div id="cfg-banner">
+  <div class="cfg-head">
+    <strong>⚙️ Firebase non configuré</strong>
+    <button onclick="document.getElementById('cfg-banner').style.display='none'">✕</button>
+  </div>
+  <div class="cfg-body">
+    Mode local — données non partagées.<br/>
+    Remplacez les valeurs <code>VOTRE_*</code> dans ce fichier par votre config Firebase pour activer la sync en temps réel.
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════
+   🔧 FIREBASE — remplacez par vos clés
+   console.firebase.google.com
+   → Paramètres du projet → Vos applications → config web
+════════════════════════════════════════════ */
+var FIREBASE_CFG = {
+  apiKey:            "VOTRE_API_KEY",
+  authDomain:        "VOTRE_PROJECT.firebaseapp.com",
+  databaseURL:       "https://VOTRE_PROJECT-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:         "VOTRE_PROJECT",
+  storageBucket:     "VOTRE_PROJECT.appspot.com",
+  messagingSenderId: "VOTRE_SENDER_ID",
+  appId:             "VOTRE_APP_ID"
+};
+/* ════════════════════════════════════════════ */
+
+var CATS = [
+  {id:'gare',        icon:'🚂', label:'Gare'},
+  {id:'aeroport',    icon:'✈️',  label:'Aéroport'},
+  {id:'hebergement', icon:'🏨', label:'Hébergement'},
+  {id:'velo',        icon:'🚲', label:'Vélo / Trottinette'},
+  {id:'bus',         icon:'🚌', label:'Bus / Tram'},
+  {id:'covoiturage', icon:'🚗', label:'Covoiturage'},
+  {id:'train_vert',  icon:'🌿', label:'Train vert'},
+  {id:'campus',      icon:'🎓', label:'Campus INSA'},
+  {id:'restaurant',  icon:'🍽️', label:'Restaurant'},
+  {id:'culture',     icon:'🏛️', label:'Culture'},
+  {id:'sport',       icon:'⚽', label:'Sport'},
+  {id:'autre',       icon:'📌', label:'Autre'}
+];
+
+var INSAS = {
+  toulouse:   {label:'INSA Toulouse',   lat:43.5622,lng:1.4677,  color:'#dc2626',bg:'rgba(220,38,38,.12)',  tx:'#991b1b'},
+  lyon:       {label:'INSA Lyon',       lat:45.7828,lng:4.8722,  color:'#2563eb',bg:'rgba(37,99,235,.12)',  tx:'#1e40af'},
+  rennes:     {label:'INSA Rennes',     lat:48.1173,lng:-1.7013, color:'#059669',bg:'rgba(5,150,105,.12)',  tx:'#065f46'},
+  rouen:      {label:'INSA Normandie',  lat:49.3836,lng:1.0695,  color:'#7c3aed',bg:'rgba(124,58,237,.12)', tx:'#5b21b6'},
+  strasbourg: {label:'INSA Strasbourg', lat:48.5735,lng:7.7632,  color:'#d97706',bg:'rgba(217,119,6,.15)',  tx:'#92400e'},
+  cvl:        {label:'INSA CVL',        lat:47.0810,lng:2.3988,  color:'#db2777',bg:'rgba(219,39,119,.12)', tx:'#9d174d'},
+  hdf:        {label:'INSA HDF',        lat:50.3580,lng:3.5238,  color:'#0d9488',bg:'rgba(13,148,136,.12)', tx:'#0f766e'}
+};
+
+var GREEN = {
+  toulouse:{score:72,sections:[
+    {icon:'🚲',title:'Vélos & Trottinettes',color:'#16a34a',items:[
+      {t:'VélôToulouse',s:'275 stations · 2 400 vélos · 1,20€/heure'},
+      {t:'Pony Bikes & Tier Scooters',s:'Free-floating · App dédiée'}
+    ]},
+    {icon:'🚇',title:'Transports en commun',color:'#2563eb',items:[
+      {t:'Tisséo — Métro A & B',s:'Fréquence 90 sec. aux heures de pointe'},
+      {t:'Tramway T1 & T2',s:'Desserte campus Paul Sabatier'}
+    ]},
+    {icon:'🚗',title:'Mobilité partagée',color:'#ea580c',items:[
+      {t:'BlaBlaCar + Karos',s:'Paris, Lyon, Bordeaux — nombreux départs'},
+      {t:'Citiz Autopartage',s:'Voitures électriques en libre-service'}
+    ]}
+  ]},
+  lyon:{score:85,sections:[
+    {icon:'🚲',title:'Vélos & Trottinettes',color:'#16a34a',items:[
+      {t:"Vélo'V — Métropole de Lyon",s:'350 stations · 5 000 vélos · 25€/an étudiant'},
+      {t:'Bird, Lime, Tier',s:'Trottinettes en free-floating'}
+    ]},
+    {icon:'🚇',title:'Transports en commun',color:'#2563eb',items:[
+      {t:'TCL — 4 lignes de métro (A B C D)',s:'Campus La Doua accessible en tramway'},
+      {t:'Tramway T1 à T8',s:'Réseau très étendu'}
+    ]},
+    {icon:'🌿',title:'Train régional',color:'#15803d',items:[
+      {t:'TGV Lyon Part-Dieu',s:'Paris 2h · Marseille 1h35 · Bordeaux 2h'},
+      {t:'TER ARA',s:'Grenoble 1h10 · Genève 2h · Chambéry 1h'}
+    ]}
+  ]},
+  rennes:{score:79,sections:[
+    {icon:'🚲',title:'Vélos',color:'#16a34a',items:[
+      {t:'STAR — Vélos Star',s:'82 stations · 900 vélos · 1€/mois étudiant'},
+      {t:'Lime & Pony',s:'Trottinettes en free-floating'}
+    ]},
+    {icon:'🚇',title:'Transports en commun',color:'#2563eb',items:[
+      {t:'Métro lignes a & b',s:'Fréquence 2 min en heure de pointe'},
+      {t:'Bus STAR',s:'Pass étudiant 12€/mois · Réseau dense'}
+    ]},
+    {icon:'🌿',title:'Train',color:'#15803d',items:[
+      {t:'TGV Paris–Rennes',s:'1h27 · Nombreux départs'},
+      {t:'TER Bretagne',s:'Nantes 1h10 · Brest 2h · Saint-Malo 1h'}
+    ]}
+  ]},
+  rouen:{score:61,sections:[
+    {icon:'🚲',title:'Vélos',color:'#16a34a',items:[
+      {t:"cy'clic — vélos libre-service",s:'49 stations · Abonnement annuel 18€'},
+      {t:'Lime Scooters',s:'Disponibles en centre-ville'}
+    ]},
+    {icon:'🚇',title:'Transports en commun',color:'#2563eb',items:[
+      {t:'ASTUCE — Métro & TEOR bus-tram',s:'Campus INSA accessible en 20 min depuis la gare'}
+    ]},
+    {icon:'🌿',title:'Train',color:'#15803d',items:[
+      {t:'TER Paris-Saint-Lazare',s:'1h25 · Nombreux départs · Navigo valable'},
+      {t:'Intercités vers Le Havre, Caen',s:'Connexions régionales normandes'}
+    ]}
+  ]},
+  strasbourg:{score:91,sections:[
+    {icon:'🚲',title:'Vélos — 1ère ville cyclable de France',color:'#16a34a',items:[
+      {t:'Vélhop',s:'46 stations · 10€/mois étudiant · 600 km de pistes cyclables'},
+      {t:'EuroVelo 15 — Route du Rhin',s:'Accès direct depuis la ville'}
+    ]},
+    {icon:'🚇',title:'Tramway (6 lignes — réseau le + dense d\'Europe)',color:'#2563eb',items:[
+      {t:'CTS — 6 lignes de tramway',s:'24h/24 les weekends · Bus électriques'},
+      {t:'Tram transfrontalier vers Kehl (DE)',s:'Gratuit pour les étudiants'}
+    ]},
+    {icon:'🌿',title:'Train',color:'#15803d',items:[
+      {t:'TGV Paris–Strasbourg',s:'1h47 — la liaison la plus rapide de France par km'},
+      {t:'TER Alsace',s:'Colmar 30 min · Mulhouse 50 min · Bâle 55 min'}
+    ]}
+  ]},
+  cvl:{score:52,sections:[
+    {icon:'🚲',title:'Vélos',color:'#16a34a',items:[
+      {t:'VéloBi Bourges',s:'10 stations · Service limité au centre-ville'}
+    ]},
+    {icon:'🚇',title:'Transports en commun',color:'#2563eb',items:[
+      {t:'Agglobus — 12 lignes',s:'1€/trajet étudiant'},
+      {t:'Navette Campus INSA',s:'Gare → campus · Gratuit pour les étudiants INSA'}
+    ]},
+    {icon:'🌿',title:'Train & alternatives',color:'#15803d',items:[
+      {t:'TER Paris–Bourges',s:'2h15 · Via Vierzon ou Nevers'},
+      {t:'BlaBlaCar fortement recommandé',s:'La ville est peu desservie — covoiturage essentiel'}
+    ]}
+  ]},
+  hdf:{score:58,sections:[
+    {icon:'🚲',title:'Vélos',color:'#16a34a',items:[
+      {t:"Vélov' Valenciennes Métropole",s:'8 stations en expansion · Voie verte de l\'Escaut 11 km'},
+      {t:'Tier Scooters',s:'Disponibles en centre-ville'}
+    ]},
+    {icon:'🚇',title:'Tramway T1 & T2',color:'#2563eb',items:[
+      {t:'Transvilles — arrêt Moriamez Recherche',s:'Campus INSA HDF · 15 min depuis la gare · 1,70€'}
+    ]},
+    {icon:'🌿',title:'Train & connexions',color:'#15803d',items:[
+      {t:'TER Lille–Valenciennes',s:'35 min · Nombreux départs'},
+      {t:'Thalys / Eurostar via Lille-Europe',s:'Bruxelles 30 min · Londres 1h20 · Amsterdam 1h40'}
+    ]}
+  ]}
+};
+
+/* ─── STATE ──────────────────────────────── */
+var map, db;
+var pois    = {};
+var markers = {};
+var selCat  = null;
+var pendLL  = null;
+var activeFilters = new Set();
+
+function getCat(id)  { return CATS.find(function(c){return c.id===id;})||CATS[CATS.length-1]; }
+function getInsa(id) { return INSAS[id]||{label:id,color:'#6b7280',bg:'rgba(107,114,128,.12)',tx:'#374151'}; }
+
+/* ─── FIREBASE ───────────────────────────── */
+function initFirebase() {
+  if (FIREBASE_CFG.apiKey === 'VOTRE_API_KEY') {
+    document.getElementById('cfg-banner').style.display = 'block';
+    return;
+  }
+  try {
+    var app = firebase.initializeApp(FIREBASE_CFG);
+    db = firebase.database(app);
+    listenPOIs();
+  } catch(e) {
+    console.error('Firebase:', e);
+    document.getElementById('cfg-banner').style.display = 'block';
+  }
+}
+
+function listenPOIs() {
+  db.ref('mobility_map').on('value', function(snap) {
+    var raw = snap.val() || {};
+    Object.keys(markers).forEach(function(id) {
+      if (!raw[id]) { map.removeLayer(markers[id]); delete markers[id]; }
+    });
+    pois = {};
+    Object.keys(raw).forEach(function(id) {
+      pois[id] = Object.assign({}, raw[id], {id:id});
+      if (!markers[id]) addMarker(id, pois[id]);
+    });
+    renderList();
+    updateBadge();
+  });
+}
+
+/* ─── MAP ────────────────────────────────── */
+function initMap() {
+  map = L.map('map', {center:[46.9,2.3], zoom:6, zoomControl:false});
+  L.control.zoom({position:'bottomright'}).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution:'© OpenStreetMap · CartoDB', maxZoom:19
+  }).addTo(map);
+
+  Object.keys(INSAS).forEach(function(key) {
+    var insa = INSAS[key];
+    var icon = L.divIcon({
+      className:'',
+      html:'<div class="campus-pin">'+key.substring(0,3).toUpperCase()+'</div>',
+      iconSize:[36,36], iconAnchor:[18,18]
+    });
+    L.marker([insa.lat, insa.lng], {icon:icon, interactive:false}).addTo(map);
+  });
+
+  map.on('click', function(e) {
+    if (!selCat) return;
+    pendLL = {lat:e.latlng.lat, lng:e.latlng.lng};
+    updateHint();
+    checkReady();
+  });
+}
+
+function addMarker(id, poi) {
+  var cat  = getCat(poi.category);
+  var insa = getInsa(poi.insa);
+  var icon = L.divIcon({
+    className:'',
+    html:'<div style="width:36px;height:36px;border-radius:50%;background:'+insa.color+';border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:0 2px 10px rgba(0,0,0,.3);cursor:pointer">'+cat.icon+'</div>',
+    iconSize:[36,36], iconAnchor:[18,18], popupAnchor:[0,-20]
+  });
+  var popup =
+    '<div class="popup-head">'+
+      '<span class="popup-ico">'+cat.icon+'</span>'+
+      '<div class="popup-name">'+esc(poi.name)+'</div>'+
+      '<span class="popup-insa-tag">'+insa.label+'</span>'+
+    '</div>'+
+    '<div class="popup-body">'+
+      '<div class="popup-cat">'+cat.label+'</div>'+
+      (poi.desc ? '<div class="popup-desc">'+esc(poi.desc)+'</div>' : '')+
+      '<div class="popup-author">Ajouté par '+esc(poi.author)+'</div>'+
+    '</div>'+
+    '<button class="popup-del" onclick="deletePOI(\''+id+'\')">🗑 Supprimer ce point</button>';
+
+  var m = L.marker([poi.lat, poi.lng], {icon:icon}).addTo(map);
+  m.bindPopup(popup, {maxWidth:280});
+  markers[id] = m;
+}
+
+function deletePOI(id) {
+  if (!confirm('Supprimer ce point ?')) return;
+  map.closePopup();
+  if (db) {
+    db.ref('mobility_map/'+id).remove();
+  } else {
+    delete pois[id];
+    if (markers[id]) { map.removeLayer(markers[id]); delete markers[id]; }
+    renderList(); updateBadge();
+  }
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* ─── SUBMIT ─────────────────────────────── */
+function submitPOI() {
+  var name   = document.getElementById('inp-name').value.trim();
+  var insaId = document.getElementById('sel-insa').value;
+  var desc   = document.getElementById('inp-desc').value.trim();
+  var author = document.getElementById('inp-author').value.trim() || 'Anonyme';
+  if (!name||!insaId||!selCat||!pendLL) return;
+
+  var poi = {name:name, insa:insaId, desc:desc, author:author,
+             category:selCat, lat:pendLL.lat, lng:pendLL.lng, ts:Date.now()};
+
+  if (db) {
+    db.ref('mobility_map').push(poi);
+  } else {
+    var id = 'local_'+Date.now();
+    pois[id] = Object.assign({}, poi, {id:id});
+    addMarker(id, pois[id]);
+    renderList(); updateBadge();
+  }
+
+  document.getElementById('inp-name').value  = '';
+  document.getElementById('inp-desc').value  = '';
+  document.getElementById('sel-insa').value  = '';
+  document.getElementById('inp-author').value = '';
+  selCat = null; pendLL = null;
+  document.querySelectorAll('.cat-btn').forEach(function(b){b.classList.remove('sel');});
+  document.getElementById('add-btn').disabled = true;
+  document.body.classList.remove('placing');
+  updateHint();
+}
+
+/* ─── UI HELPERS ─────────────────────────── */
+function buildCatGrid() {
+  var grid = document.getElementById('cat-grid');
+  CATS.forEach(function(c) {
+    var btn = document.createElement('button');
+    btn.className = 'cat-btn';
+    btn.innerHTML = '<span class="ico">'+c.icon+'</span>'+c.label;
+    btn.onclick = function() {
+      selCat = c.id; pendLL = null;
+      document.querySelectorAll('.cat-btn').forEach(function(b){b.classList.remove('sel');});
+      btn.classList.add('sel');
+      document.body.classList.add('placing');
+      updateHint(); checkReady();
+    };
+    grid.appendChild(btn);
+  });
+}
+
+function updateHint() {
+  var hint = document.getElementById('place-hint');
+  var txt  = document.getElementById('hint-text');
+  if (!selCat) {
+    hint.className = 'place-hint idle';
+    txt.textContent = 'Choisissez une catégorie puis cliquez sur la carte';
+  } else if (!pendLL) {
+    hint.className = 'place-hint idle';
+    txt.textContent = getCat(selCat).icon+' '+getCat(selCat).label+' sélectionné · Cliquez sur la carte';
+  } else {
+    hint.className = 'place-hint placed';
+    txt.textContent = '✅ Position définie · '+pendLL.lat.toFixed(4)+', '+pendLL.lng.toFixed(4);
+    document.body.classList.remove('placing');
+  }
+}
+
+function checkReady() {
+  var ok = !!(selCat && pendLL && document.getElementById('inp-name').value.trim() && document.getElementById('sel-insa').value);
+  document.getElementById('add-btn').disabled = !ok;
+}
+
+function renderList() {
+  var list = document.getElementById('poi-list');
+  var all  = Object.values(pois).sort(function(a,b){return b.ts-a.ts;});
+  var show = activeFilters.size > 0 ? all.filter(function(p){return activeFilters.has(p.category);}) : all;
+  document.getElementById('list-count').textContent = all.length;
+  buildFilterBar(all);
+
+  if (!show.length) {
+    list.innerHTML = '<div class="empty-state"><span class="empty-ico">📍</span>Aucun point encore.<br>Sélectionnez une catégorie<br>et cliquez sur la carte.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  show.forEach(function(poi) {
+    var cat  = getCat(poi.category);
+    var insa = getInsa(poi.insa);
+    var card = document.createElement('div');
+    card.className = 'poi-card';
+    card.innerHTML =
+      '<div class="poi-card-top">'+
+        '<span class="poi-card-ico">'+cat.icon+'</span>'+
+        '<div style="flex:1;min-width:0">'+
+          '<div class="poi-card-name">'+esc(poi.name)+'</div>'+
+          '<div class="poi-card-meta">'+
+            '<span class="insa-tag" style="background:'+insa.bg+';color:'+insa.tx+'">'+insa.label+'</span>'+
+            '<span class="cat-tag">'+cat.label+'</span>'+
+            '<span class="author-tag">'+esc(poi.author)+'</span>'+
+          '</div>'+
+        '</div>'+
+      '</div>'+
+      (poi.desc ? '<div class="poi-card-desc">'+esc(poi.desc)+'</div>' : '');
+    card.onclick = function() {
+      var m = markers[poi.id];
+      if (m) { map.setView([poi.lat, poi.lng], 14, {animate:true}); m.openPopup(); }
+    };
+    list.appendChild(card);
+  });
+}
+
+function buildFilterBar(all) {
+  var bar  = document.getElementById('filter-bar');
+  var cats = [];
+  all.forEach(function(p){ if(cats.indexOf(p.category)===-1) cats.push(p.category); });
+  bar.innerHTML = '';
+  var allBtn = document.createElement('button');
+  allBtn.className = 'chip'+(activeFilters.size===0?' active':'');
+  allBtn.textContent = 'Tous';
+  allBtn.onclick = function(){ activeFilters.clear(); renderList(); };
+  bar.appendChild(allBtn);
+  cats.forEach(function(cid) {
+    var c = getCat(cid);
+    var btn = document.createElement('button');
+    btn.className = 'chip'+(activeFilters.has(cid)?' active':'');
+    btn.textContent = c.icon+' '+c.label;
+    btn.onclick = function() {
+      if(activeFilters.has(cid)) activeFilters.delete(cid); else activeFilters.add(cid);
+      renderList();
+    };
+    bar.appendChild(btn);
+  });
+}
+
+function updateBadge() {
+  var n = Object.keys(pois).length;
+  document.getElementById('total-badge').textContent = n+' point'+(n!==1?'s':'');
+}
+
+function renderGreen() {
+  var city  = document.getElementById('green-city').value;
+  var data  = GREEN[city];
+  var panel = document.getElementById('green-panel');
+  if (!data) { panel.innerHTML=''; return; }
+  var html =
+    '<div class="green-section">'+
+      '<div class="green-head" style="background:#0A1628">🌱 Score mobilité verte — '+INSAS[city].label+'</div>'+
+      '<div class="green-body">'+
+        '<div class="green-score-row">'+
+          '<span class="green-score-lbl">Indice global</span>'+
+          '<div class="green-score-bar"><div class="green-score-fill" style="width:'+data.score+'%"></div></div>'+
+          '<span class="green-score-val">'+data.score+'/100</span>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  data.sections.forEach(function(sec) {
+    html += '<div class="green-section"><div class="green-head" style="background:'+sec.color+'">'+sec.icon+' '+sec.title+'</div><div class="green-body">';
+    sec.items.forEach(function(item) {
+      html += '<div class="green-item"><div class="green-dot" style="background:'+sec.color+'"></div><div><div class="green-item-text">'+item.t+'</div><div class="green-item-sub">'+item.s+'</div></div></div>';
+    });
+    html += '</div></div>';
+  });
+  panel.innerHTML = html;
+}
+
+function switchTab(id, btn) {
+  document.querySelectorAll('.sub-tab').forEach(function(t){t.classList.remove('active');});
+  document.querySelectorAll('.panel').forEach(function(p){p.classList.remove('active');});
+  btn.classList.add('active');
+  document.getElementById('panel-'+id).classList.add('active');
+}
+
+/* ─── BOOT ───────────────────────────────── */
+document.addEventListener('DOMContentLoaded', function() {
+  initMap();
+  buildCatGrid();
+  renderGreen();
+  initFirebase();
+});
+</script>
+</body>
+</html>
